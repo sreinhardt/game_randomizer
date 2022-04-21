@@ -1,45 +1,29 @@
 use std::fmt;
-use std::sync::Arc;
 use std::collections::HashMap;
-use tokio::sync::RwLock;
+use serde::{Serialize, Deserialize};
 
 use serenity::prelude::*;
-use serenity::prelude::SerenityError;
 use serenity::client::Context;
 use serenity::model::id::GuildId;
-use serenity::model::channel::{ ChannelType,  MessageType};
-use serenity::utils::EmbedMessageBuilding;
 
 use serenity::{
     async_trait,
-    client::bridge::gateway::{GatewayIntents, ShardId, ShardManager},
     framework::standard::{
-        buckets::{LimitedFor, RevertBucket},
-        help_commands,
-        macros::{check, command, group, help, hook},
+        macros::{command, group},
         Args,
-        CommandGroup,
-        CommandOptions,
-        CommandResult,
-        DispatchError,
-        HelpOptions,
-        Reason,
-        StandardFramework,
+        CommandResult
     },
-    http::Http,
     model::{
-        channel::{Channel, Message},
-        gateway::Ready,
+        channel::Message,
         id::UserId,
-        permissions::Permissions,
     },
     utils::{
-        content_safe, ContentSafeOptions,
         MessageBuilder
     }
 };
 use crate::endpoints::steam;
 
+#[derive(Deserialize,Serialize)]
 pub enum Suggestion {
     Steam(UserId, steam::App),
     PlainText(UserId, TextSuggestion)
@@ -81,7 +65,7 @@ impl Default for Suggestion {
     }
 }
 
-#[derive(Debug,Hash)]
+#[derive(Debug,Hash,Deserialize,Serialize)]
 pub struct TextSuggestion {
     pub title: String,
     pub genre: Option<String>,
@@ -109,6 +93,7 @@ impl fmt::Display for TextSuggestion {
     }
 }
 
+#[derive(Deserialize,Serialize)]
 pub struct GameSuggestions;
 impl TypeMapKey for GameSuggestions {
     type Value = HashMap<GuildId, Vec<Suggestion>>;
@@ -333,7 +318,6 @@ async fn remove_steam_suggestion(ctx: &Context, msg: &Message, mut args: Args) -
     let mut idx = std::usize::MAX;
     let tmp = suggestion.title().to_ascii_lowercase();
     { // read lock
-        use self::Suggestion::*;
         let rlock = ctx.data.read().await;
         let inner = rlock.get::<GameSuggestions>().expect("no suggestions read data");
         if let Some(existing) = inner.get(&gid) {

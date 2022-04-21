@@ -3,7 +3,9 @@ use std::ops::Deref;
 use std::fmt;
 use rsteam;
 use serenity::prelude::*;
+use serde::{Serialize, Deserialize};
 
+#[derive(Deserialize,Serialize)]
 pub struct App {
     pub id: u32,
     pub name: String,
@@ -28,6 +30,7 @@ impl From<&rsteam::steam_apps::App> for App {
     }
 }
 
+#[derive(Deserialize,Serialize)]
 pub struct Apps (Vec<App>);
 impl Apps {
     pub fn new(apps: Vec<App>) -> Self {

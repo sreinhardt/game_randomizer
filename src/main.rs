@@ -1,32 +1,18 @@
 use std::{
-    env,
     collections::HashSet,
     sync::Arc
 };
 
-use tokio::sync::RwLock;
-use clap::{App as ClapApp, Arg, crate_version, SubCommand, ArgMatches};
+//use clap::{App as ClapApp, Arg, crate_version, SubCommand, ArgMatches};
 
 use serenity::{
     prelude::*,
-    model::{
-        channel::Message,
-        prelude::*,
-    },
-    async_trait,
     client::{
-        Client, Context, EventHandler,
+        Client,
         bridge::gateway::ShardManager
     },
     http::Http,
-    framework::standard::{
-        StandardFramework,
-        CommandResult,
-        macros::{
-            command,
-            group
-        }
-    }
+    framework::standard::StandardFramework
 };
 
 mod config;
@@ -34,7 +20,12 @@ mod events;
 mod commands;
 mod endpoints;
 
-use crate::commands::{GENERAL_GROUP, SUGGESTIONS_GROUP, GameSuggestions};
+use crate::commands::{
+    GENERAL_GROUP,
+    SUGGESTIONS_GROUP, GameSuggestions,
+    PLAYERS_GROUP, PlayerContainer,
+    
+};
 use crate::events::Handler;
 use crate::endpoints::steam;
 use crate::config::Config;
@@ -51,6 +42,14 @@ async fn main() {
         Ok(c) => c,
         Err(_) => panic!{"Unable to read config"}
     };
+    let suggestions = match config.load_suggestions() {
+        Some(s) => s,
+        None => GameSuggestions::new()
+    };
+    let players = match config.load_players() {
+        Some(s) => s,
+        None => PlayerContainer::new()
+    };
     
     // access bot owners to restrict commands
     let http = Http::new_with_token(&config.discord);
@@ -66,19 +65,23 @@ async fn main() {
     let framework = StandardFramework::new()
         .configure(|c| c.owners(owners).prefix("~"))
         .group(&GENERAL_GROUP)
-        .group(&SUGGESTIONS_GROUP);
+        .group(&SUGGESTIONS_GROUP)
+        .group(&PLAYERS_GROUP);
     // Login with a bot token from the environment
-    let mut client = Client::builder(config.discord)
+    let mut client = Client::builder(&config.discord)
         .event_handler(Handler)
         .framework(framework)
         .await
         .expect("Error creating client");
     // add shared data
+    // TODO use config.storage for saving
     let mut steamclient = steam::Client::with_api_key(&config.steam);
     steamclient.fill_app_list().await.expect("Could not fill steam app list");
     {
         let mut data = client.data.write().await;
-        data.insert::<GameSuggestions>(GameSuggestions::new());
+        data.insert::<Config>(config);
+        data.insert::<GameSuggestions>(suggestions);
+        data.insert::<PlayerContainer>(players);
         data.insert::<ShardManagerContainer>(client.shard_manager.clone());
         data.insert::<steam::Client>(Arc::new(Mutex::new(steamclient)));
     }
