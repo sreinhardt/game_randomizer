@@ -9,12 +9,13 @@ use serenity::framework::standard::{
     CommandResult,
     macros::{group, command}
 };
+use serenity::utils::MessageBuilder;
 
 use crate::ShardManagerContainer;
 use crate::commands::{GameSuggestions, PlayerContainer};
 
 #[group]
-#[commands(ping, quit, save)]
+#[commands(ping, quit, save, get_ids)]
 pub struct General;
 
 // PING_COMMAND
@@ -27,6 +28,32 @@ async fn ping(ctx: &Context, msg: &Message) -> CommandResult {
 
     Ok(())
 }
+
+#[command]
+#[owners_only]
+async fn get_ids(ctx: &Context, msg: &Message) -> CommandResult {
+    let mut response = MessageBuilder::new();
+    
+    if let Some(guild) = msg.guild(&ctx.cache).await {
+        response.push_line(format!{"Guild(name:{}, id:{})", guild.name, guild.id});
+        response.push_line("Members:");
+        let _: Vec<u8> = guild.members(&ctx.http, None, None).await?.iter()
+            .map(|user| {
+                if let Some(nick) = &user.nick {
+                    response.push_line(format!{"{} ({}, {})", nick, user.user.id, user.user.name});
+                } else {
+                    response.push_line(format!{"({}, {})", user.user.id, user.user.name});
+                }
+                0
+            }).collect();
+    } else {
+        response.push_line("msg.guild not found!");
+    }
+    let dm = msg.author.create_dm_channel(&ctx).await?;
+    dm.send_message(&ctx.http, |m| m.content(response.build()) ).await?;
+    Ok(())
+}
+
 #[command]
 #[owners_only]
 async fn quit(ctx: &Context, msg: &Message) -> CommandResult {

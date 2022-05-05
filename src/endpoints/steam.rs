@@ -117,6 +117,18 @@ impl Client {
         }
         self.apps.find_by_name(name)
     }
+    pub async fn resolve_vanity_user(&self, user:&str) -> Result<rsteam::SteamID, ()> {
+        match self.client.resolve_vanity_url(user, None).await {
+            Ok(u) => Ok(u),
+            Err(_) => Err(())
+        }
+    }
+    pub async fn user_owned_games(&self, user: &rsteam::SteamID) -> Result<rsteam::player_service::OwnedGames, ()> {
+        match self.client.get_owned_games(user, None, Some(true), None, Some(true)).await {
+            Ok(g) => Ok(g),
+            Err(_) => Err(())
+        }
+    }
 }
 impl Default for Client {
     fn default() -> Self {
